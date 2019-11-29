@@ -25,34 +25,34 @@ func TestShellCommand(t *testing.T) {
 	var err error
 	var retCode int
 
-	retCode, err = executeShellCommand("", []string{""})
+	retCode, err = ExecuteShellCommand("", []string{""})
 	assert.EqualError(t, err, "Shell command cannot be empty", "Empty command should fail")
 
-	retCode, err = executeShellCommand("ping0", nil)
+	retCode, err = ExecuteShellCommand("ping0", nil)
 	assert.NoError(t, err, "Command with nil param is OK")
 
-	retCode, err = executeShellCommand("ping1", []string{})
+	retCode, err = ExecuteShellCommand("ping1", []string{})
 	assert.NoError(t, err, "Command with empty array param is OK")
 
-	retCode, err = executeShellCommand("ping2", []string{""})
+	retCode, err = ExecuteShellCommand("ping2", []string{""})
 	assert.NoError(t, err, "Command with empty string param is OK")
 
-	retCode, err = executeShellCommand("ping3", []string{"[]"})
+	retCode, err = ExecuteShellCommand("ping3", []string{"[]"})
 	assert.NoError(t, err, "Command with empty json array param is OK")
 
-	retCode, err = executeShellCommand("ping3", []string{"[null]"})
+	retCode, err = ExecuteShellCommand("ping3", []string{"[null]"})
 	assert.NoError(t, err, "Command with nil array param is OK")
 
-	retCode, err = executeShellCommand("ping4", []string{`["localhost"]`})
+	retCode, err = ExecuteShellCommand("ping4", []string{`["localhost"]`})
 	assert.NoError(t, err, "Command with one param is OK")
 
-	retCode, err = executeShellCommand("ping5", []string{`["localhost", "-4"]`})
+	retCode, err = ExecuteShellCommand("ping5", []string{`["localhost", "-4"]`})
 	assert.NoError(t, err, "Command with many params is OK")
 
-	retCode, err = executeShellCommand("pong", nil)
+	retCode, err = ExecuteShellCommand("pong", nil)
 	assert.IsType(t, (*exec.Error)(nil), err, "Uknown command should produce error")
 
-	retCode, err = executeShellCommand("ping5", []string{`{"param1": "localhost"}`})
+	retCode, err = ExecuteShellCommand("ping5", []string{`{"param1": "localhost"}`})
 	assert.IsType(t, (*json.UnmarshalTypeError)(nil), err, "Command should fail with mailformed json parameter")
 	assert.NotEqual(t, 0, retCode, "return code should indicate failure.")
 
