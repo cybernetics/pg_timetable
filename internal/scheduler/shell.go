@@ -22,8 +22,8 @@ func (c realCommander) CombinedOutput(command string, args ...string) ([]byte, e
 
 var cmd commander
 
-// ExecuteTask executes built-in task depending on task name and returns err result
-func executeShellCommand(command string, paramValues []string) (int, error) {
+//ExecuteShellCommand executes built-in task depending on task name and returns err result
+func ExecuteShellCommand(command string, paramValues []string) (int, error) {
 	if strings.TrimSpace(command) == "" {
 		return -1, errors.New("Shell command cannot be empty")
 	}
