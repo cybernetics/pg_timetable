@@ -11,8 +11,8 @@ import (
  */
 
 func main() {
-	cmdPtr := flag.String("cmd", `uconv`, "command to run")
-	cmdArgs := flag.String("arg", `["-x", "::Latin; ::Latin-ASCII;", "-o", "orte_ansi.txt", "orte.txt"]`, "arguments for the command")
+	cmdPtr := flag.String("cmd", `bash`, "command to run")
+	cmdArgs := flag.String("arg", `["-c", "uconv -x \"::Latin; ::Latin-ASCII;\" > orte_ansi.txt < orte.txt"]`, "arguments for the command")
 	exitCode, err := scheduler.ExecuteShellCommand(*cmdPtr, []string{*cmdArgs})
 	if err != nil {
 		fmt.Println(err)
