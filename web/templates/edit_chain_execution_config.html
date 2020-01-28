@@ -7,29 +7,49 @@
           {% from "_formhelpers.html" import render_field %}
           <form action="." method="post">
             <dl>
-              {{ render_field(form.chain_id, class="form-control" + (" is-invalid" if form.errors else "")) }}
+              {{ render_field(form.chain_id, class="form-control selectpicker" + (" is-invalid" if form.errors else ""), data_style="btn-secondary") }}
               {% if form.task_id.choices|length > 0 and not form.task_id.choices.0.0 is none %}
-              {{ render_field(form.task_id, class="custom-select") }}
+                {{ render_field(form.task_id, class="form-control selectpicker", data_style="btn-secondary") }}
               {% endif %}
               {{ render_field(form.chain_name, class="form-control" + (" is-invalid" if form.errors else "")) }}
               {{ render_field(form.client_name, class="form-control" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.run_at_minute, class="form-control" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.run_at_hour, class="form-control" + (" is-invalid" if form.errors else ""))}}
-              {{ render_field(form.run_at_day, class="form-control" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.run_at_month, class="form-control" + (" is-invalid" if form.errors else ""))}}
-              {{ render_field(form.run_at_day_of_week, class="form-control" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.max_instances, min=0, class="form-control" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.live, class="custom-control custom-checkbox" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.self_destruct, class="custom-control custom-checkbox" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.exclusive_execution, class="custom-control custom-checkbox" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.excluded_execution_configs, class="form-control" + (" is-invalid" if form.errors else "")) }}
-            </dl>
+              <div class="border rounded p-1 mb-4" id="schedule">
+                <div class="d-flex justify-content-center align-items-center">
+                  <h3 class="m-0">Schedule</h3>
+                  <button type="checkbox" class="btn btn-secondary btn-sm  m-0" data-toggle="button" aria-pressed="false" id="advanced_schedule">Toggle advanced mode</button>
+                </div>
+                <div>
+                  {{ render_field(form.run_at_minute, class="form-control selectpicker" + (" is-invalid" if form.errors else ""), data_style="btn-secondary")}}
+                  {{ render_field(form.run_at_hour, class="form-control selectpicker" + (" is-invalid" if form.errors else ""), data_style="btn-secondary")}}
+                  {{ render_field(form.run_at_day, class="form-control selectpicker" + (" is-invalid" if form.errors else ""), data_style="btn-secondary")}}
+                  {{ render_field(form.run_at_month, class="form-control selectpicker" + (" is-invalid" if form.errors else ""), data_style="btn-secondary")}}
+                  {{ render_field(form.run_at_day_of_week, class="form-control selectpicker" + (" is-invalid" if form.errors else ""), data_style="btn-secondary") }}
+                </div>
+                <div class="d-none">
+                  {{ render_field(form.run_at, class="form-control" + (" is-invalid" if form.errors else "")) }}
+                </div>
+              </div>
+                {{ render_field(form.max_instances, min=0, class="form-control" + (" is-invalid" if form.errors else "")) }}
+                {{ render_field(form.live, class="custom-control custom-checkbox" + (" is-invalid" if form.errors else "")) }}
+                {{ render_field(form.self_destruct, class="custom-control custom-checkbox" + (" is-invalid" if form.errors else "")) }}
+                {{ render_field(form.exclusive_execution, class="custom-control custom-checkbox" + (" is-invalid" if form.errors else "")) }}
+                {{ render_field(form.excluded_execution_configs, class="form-control" + (" is-invalid" if form.errors else "")) }}
+              </dl>
             <input type="submit" class="btn btn-primary" value="submit" />
           </form>
         </div>
       </div>
     </div>
   </div>
-
 </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+$("#advanced_schedule").on("click", function(){
+  $("#schedule > div").each(function() {
+    $(this).toggleClass("d-none")
+  })
+})
+</script>
 {% endblock %}

@@ -1,6 +1,6 @@
 from flask import Flask
 from flask import escape, request, redirect, render_template, abort
-from wtforms import Form, BooleanField, SelectField, StringField, TextAreaField, validators, IntegerField, ValidationError
+from wtforms import Form, BooleanField, SelectField, StringField, TextAreaField, validators, IntegerField, ValidationError, SelectMultipleField
 from wtforms.validators import StopValidation
 from wtforms.widgets.html5 import NumberInput
 import os
@@ -407,27 +407,22 @@ class ChainExecutionParametersForm(Form):
     value = JSONField("Value")
 
 def run_at_filter(i, raise_error=False):
-    if isinstance(i, int) or i is None:
-        return i
-    elif isinstance(i, str) and not len(i) or i == 'None' or i == "*":
-        return None
-    if raise_error:
-        return int(i)
-    try:
-        return int(i)
-    except ValueError:
-        return i
+    if i is None:
+        return []
+    else:
+        return [int(j) for j in i]
 
 
 class ChainExecutionConfigForm(Form):
-    chain_id = SelectField("Chain id", coerce=empty_or_integer, choices=[(c.chain_id, c.chain_id) for c in Model().get_all_chains()])
-    task_id = SelectField("Task id", coerce=empty_or_integer)
-    chain_name =  StringField("Chain name", filters=[lambda i: i or None])
-    run_at_minute =  StringField("Run at minute", filters=[run_at_filter])
-    run_at_hour =  StringField("Run at hour", filters=[run_at_filter])
-    run_at_day =  StringField("Run at day", filters=[run_at_filter])
-    run_at_month = StringField("Run at month", filters=[run_at_filter])
-    run_at_day_of_week = StringField("Run at day of week", filters=[run_at_filter])
+    chain_id = SelectField("Parent chain", coerce=empty_or_integer, choices=[(c.chain_id, c.chain_id) for c in Model().get_all_chains()])
+    task_id = SelectField("Task type", coerce=empty_or_integer)
+    chain_name = StringField("Chain name", filters=[lambda i: i or None])
+    run_at = StringField("Cron style schedule", filters=[lambda i: i or None])
+    run_at_minute = SelectMultipleField("Run at minute", choices=[(i, i) for i in range(0,60, 5)], filters=[run_at_filter])
+    run_at_hour = SelectMultipleField("Run at hour", choices=[(i, i) for i in range(0,24)], filters=[run_at_filter])
+    run_at_day = SelectMultipleField("Run at day", choices=[(i, i) for i in range(0,31)], filters=[run_at_filter])
+    run_at_month = SelectMultipleField("Run at month", choices=[(i, i) for i in range(1,13)], filters=[run_at_filter])
+    run_at_day_of_week = SelectMultipleField("Run at day of week", choices=[(i, title) for i, title in enumerate(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])], filters=[run_at_filter])
     max_instances = StringField("max instances", widget=NumberInput(), filters=[lambda i: i or None])
     live = MyBooleanField("live")
     self_destruct = MyBooleanField("self destruct")
@@ -442,7 +437,7 @@ class ChainExecutionConfigForm(Form):
         if hasattr(c, "chain_id") and c.chain_id != form.chain_id.data:
             raise ValidationError("Chain name must be unique!")
 
-    def validate_run_at(form, field):
+    def _validate_run_at(form, field):
         try:
             data = run_at_filter(field.data, True)
         except ValueError:
@@ -450,31 +445,31 @@ class ChainExecutionConfigForm(Form):
         field.data = data
 
     def validate_run_at_minute(form, field):
-        form.validate_run_at(field)
+        form._validate_run_at(field)
         if isinstance(field.data, int):
             if field.data < 0 or field.data > 59:
                 raise ValidationError("Run at minute must be between 0 and 59 or * if you want to run every minute")
 
     def validate_run_at_hour(form, field):
-        form.validate_run_at(field)
+        form._validate_run_at(field)
         if isinstance(field.data, int):
             if field.data < 0 or field.data > 23:
                 raise ValidationError("Run at hour must be between 0 and 23 or * if you want to run every hour")
 
     def validate_run_at_day(form, field):
-        form.validate_run_at(field)
+        form._validate_run_at(field)
         if isinstance(field.data, int):
             if field.data < 1 or field.data > 31:
                 raise ValidationError("Run at day must be between 1 and 31 or * if you want to run every day")
 
     def validate_run_at_month(form, field):
-        form.validate_run_at(field)
+        form._validate_run_at(field)
         if isinstance(field.data, int):
             if field.data < 1 or field.data > 31:
                 raise ValidationError("Run at month must be between 1 and 12 or * if you want to run every month")
 
     def validate_run_at_day_of_week(form, field):
-        form.validate_run_at(field)
+        form._validate_run_at(field)
         if isinstance(field.data, int):
             if field.data < 0 or field.data > 7:
                 raise ValidationError("Run at day of week must be between 0 and 7 or * if you want to run every day of week")
@@ -576,7 +571,28 @@ def add_chain_execution_configs():
     form.chain_id.choices = [(c.chain_id, c.chain_id) for c in db.get_all_chains()] + [(None, "Add new chain")]
     form.task_id.choices = [(t.task_id, f'{t.task_id}. {t.task_name}') for t in db.get_all_tasks()]
     if request.method == 'POST' and form.validate():
-        db.update(chain_id=form.chain_id.data, task_id=form.task_id.data, chain_name=form.chain_name.data, run_at_minute=form.run_at_minute.data, run_at_hour=form.run_at_hour.data, run_at_day=form.run_at_day.data, run_at_month=form.run_at_month.data, run_at_day_of_week=form.run_at_day_of_week.data, max_instances=form.max_instances.data, live=form.live.data, self_destruct=form.self_destruct.data, exclusive_execution=form.exclusive_execution.data, excluded_execution_configs=form.excluded_execution_configs.data, client_name=form.client_name.data)
+
+        if form.run_at.data != None:
+            cron = form.run_at.data
+        else:
+            cron_run_at_minute = ",".join([str(t) for t in form.run_at_minute.data])             if len(form.run_at_minute.data)         > 0 else "*"
+            cron_run_at_hour = ",".join([str(t) for t in form.run_at_hour.data])                 if len(form.run_at_hour.data)           > 0 else "*"
+            cron_run_at_day = ",".join([str(t) for t in form.run_at_day.data])                   if len(form.run_at_day.data)            > 0 else "*"
+            cron_run_at_month = ",".join([str(t) for t in form.run_at_month.data])               if len(form.run_at_month.data)          > 0 else "*"
+            cron_run_at_day_of_week = ",".join([str(t) for t in form.run_at_day_of_week.data])   if len(form.run_at_day_of_week.data)    > 0 else "*"
+            # CRON style
+            cron = f"{cron_run_at_minute} {cron_run_at_hour} {cron_run_at_day} {cron_run_at_month} {cron_run_at_day_of_week}"
+
+        print(cron)
+
+        # TEMPORARY, this circumvents the cron input
+        run_at_minute = form.run_at_minute.data[0] if len(form.run_at_minute.data) > 0 else None
+        run_at_hour = form.run_at_hour.data[0] if len(form.run_at_hour.data) > 0 else None
+        run_at_day = form.run_at_day.data[0] if len(form.run_at_day.data) > 0 else None
+        run_at_month = form.run_at_month.data[0] if len(form.run_at_month.data) > 0 else None
+        run_at_day_of_week = form.run_at_day_of_week.data[0] if len(form.run_at_day_of_week.data) > 0 else None
+        # TODO generate multiple configuration rows
+        db.update(chain_id=form.chain_id.data, task_id=form.task_id.data, chain_name=form.chain_name.data, run_at_minute=run_at_minute, run_at_hour=run_at_hour, run_at_day=run_at_day, run_at_month=run_at_month, run_at_day_of_week=run_at_day_of_week, max_instances=form.max_instances.data, live=form.live.data, self_destruct=form.self_destruct.data, exclusive_execution=form.exclusive_execution.data, excluded_execution_configs=form.excluded_execution_configs.data, client_name=form.client_name.data)
         db.save_chain_config()
         return redirect(f"/chain_execution_config/", code=302)
     return render_template("edit_chain_execution_config.html", form=form)
