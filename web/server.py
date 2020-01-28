@@ -117,7 +117,7 @@ class Model(object):
             )
         else:
             self.cur.execute(
-                "UPDATE timetable.base_task set name = %s, kind = %s, script = %s where task_id = %s", (self.task_name, self.task_kind, self.task_function, self.task_id))
+                "UPDATE timetable.base_task set name = %s, kind = %s, script = %s where task_id = %s AND kind != 'BUILTIN'", (self.task_name, self.task_kind, self.task_function, self.task_id))
         self.conn.commit()
 
 
@@ -265,6 +265,32 @@ class Model(object):
                 "insert into timetable.chain_execution_parameters (chain_execution_config, chain_id, order_id, value) VALUES (%s, %s, %s, %s) ON CONFLICT (chain_execution_config, chain_id, order_id) DO UPDATE set value = %s", (self.chain_execution_config, self.chain_id, self.order_id, self.value, self.value))
         self.conn.commit()
 
+    def get_last_jobs(self):
+        self.cur.execute("select date_trunc('day', last_run), returncode, count(*) as all, count(*) filter (where returncode=0) AS successful, count(*) filter (where returncode<>0) AS failures from timetable.execution_log where last_run >= now() - '1 week'::interval GROUP BY ROLLUP (1, 2);")
+        records = self.cur.fetchall()
+        result = []
+        for row in records:
+            result.append(Object(day=row[0], returncode=row[1], all=row[2], successful=row[3], failures=row[4]))
+        return result
+
+    def get_next_jobs(self):
+        self.cur.execute("SELECT chain_execution_config, chain_name, timetable.next_run(run_at_minute,run_at_hour,run_at_day,run_at_month,run_at_day_of_week) next_run FROM timetable.chain_execution_config where live = TRUE order by next_run")
+        records = self.cur.fetchall()
+        result = []
+        for row in records:
+            result.append(Object(chain_execution_config=row[0], chain_name=row[1], next_run=row[2]))
+        return result
+
+
+    def get_self_destructive_chains(self):
+        self.cur.execute("SELECT chain_execution_config, chain_id, chain_name, run_at_minute, run_at_hour, run_at_day, run_at_month, run_at_day_of_week, max_instances, live, self_destruct, exclusive_execution, excluded_execution_configs, client_name FROM timetable.chain_execution_config where self_destruct=TRUE ")
+        records = self.cur.fetchall()
+        result = []
+        for row in records:
+            result.append(Object(chain_execution_config=row[0], chain_name=row[1], next_run=row[2]))
+        return result
+
+
     def get_execution_logs(self, chain_execution_config):
         self.cur.execute("SELECT chain_execution_config, chain_id, task_id, name, script,  kind, last_run, finished, returncode, pid FROM timetable.execution_log where chain_execution_config = %s", (chain_execution_config,))
         records = self.cur.fetchall()
@@ -362,7 +388,7 @@ class TaskForm(Form):
     task_id = IntegerField("Task id")
     task_name = StringField("Task name")
     task_function = TextAreaField("Task function")
-    task_kind = SelectField("Task kind", choices=[(x,x) for x in ["SQL", "SHELL", "BUILTIN"]])
+    task_kind = SelectField("Task kind", choices=[(x,x) for x in ["SQL", "SHELL"]])
 
     def validate_task_name(form, field):
         if field.data is None or field.data == '':
@@ -432,7 +458,7 @@ class ChainExecutionConfigForm(Form):
     def validate_run_at_hour(form, field):
         form.validate_run_at(field)
         if isinstance(field.data, int):
-            if field.data < 1 or field.data > 31:
+            if field.data < 0 or field.data > 23:
                 raise ValidationError("Run at hour must be between 0 and 23 or * if you want to run every hour")
 
     def validate_run_at_day(form, field):
@@ -455,7 +481,8 @@ class ChainExecutionConfigForm(Form):
 
 @app.route('/')
 def index():
-    return redirect(f"/chain_execution_config/", code=302)
+    db = Model()
+    return render_template("dashboard.html", last_jobs=db.get_last_jobs(), next_jobs=db.get_next_jobs(), self_destructive_chains=db.get_self_destructive_chains())
 
 @app.route('/tasks/add/', methods=["GET", "POST"])
 def add_base_task():

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block body %}
+<h6>jobs executed successfully or failed in the past 7 days</h6>
+{% for obj in last_jobs %}
+<p>{{ obj }}</p>
+{% endfor %}
+<h6>next jobs to be executed</h6>
+{% for obj in next_jobs %}
+<p>{{ obj }}</p>
+{% endfor %}
+<h6>number of chains scheduled</h6>
+{{ next_jobs|length }}
+<h6>number of self-destructive chains</h6>
+{{ self_destructive_chains|length }}
+{% endblock %}

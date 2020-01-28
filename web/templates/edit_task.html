@@ -6,12 +6,10 @@
         <div class="card-body">
           {% from "_formhelpers.html" import render_field %}
           <form action="." method="post">
-            <dl>
-              {{ render_field(form.task_name, class="form-control" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.task_function, class="form-control" + (" is-invalid" if form.errors else "")) }}
-              {{ render_field(form.task_kind, class="form-control" + (" is-invalid" if form.errors else "")) }}
-            </dl>
-            <input type="submit" class="btn btn-primary" value="submit" />
+	      {{ render_field(form.task_name, class="form-control" + (" is-invalid" if form.errors else ""), **({"readonly":"true"} if form.task_kind.data == 'BUILTIN' else {})) }}
+              {{ render_field(form.task_function, class="form-control" + (" is-invalid" if form.errors else ""), **({"readonly":"true"} if form.task_kind.data == 'BUILTIN' else {})) }}
+	      {{ render_field(form.task_kind, class="form-control" + (" is-invalid" if form.errors else ""), **({"readonly":"true"} if form.task_kind.data == 'BUILTIN' else {})) }}
+              <input type="submit" class="btn btn-primary" value="submit" />
           </form>
         </div>
       </div>
