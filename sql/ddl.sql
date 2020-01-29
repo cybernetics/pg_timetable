@@ -248,88 +248,65 @@ END
 $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION timetable.next_run(minute integer, hour integer, day integer, month integer, dow integer) RETURNS timestamp without time zone AS $$
 DECLARE
-next_minute timestamp :=  date_trunc('minute', now() + interval '59 second');
-not_defined text[] := ARRAY['year', 'month',  'day', 'hour', 'minute'];
-v_year integer := date_part('year', next_minute);
-v_month integer := date_part('month', next_minute);
-v_day integer := date_part('day', next_minute);
-v_hour integer := date_part('hour', next_minute);
-v_minute integer := date_part('minute', next_minute);
+next_minute timestamp :=  date_trunc('minute', (now() + interval '59 second'));
+v_year timestamp := date_trunc('year', next_minute);
+v_month interval := (date_part('month', next_minute)-1||' month')::interval;
+v_day interval := (date_part('day', next_minute)-1||' day')::interval;
+v_hour interval := (date_part('hour', next_minute)||' hour')::interval;
+v_minute interval := (date_part('minute', next_minute)||' minute')::interval;
+v_difference interval;
 BEGIN
 IF month IS NOT NULL THEN
-    not_defined := array_remove(not_defined, 'month');
-    IF to_timestamp(0||'.'||month||'.'||v_year||' '||0||':'||0, 'DD.MM.YYYY HH24:MI') >= date_trunc('month', next_minute) THEN
-        v_day := 0;
-        v_hour := 0;
-        v_minute := 0;
-    END IF;
-    v_month = month;
+    v_month := (month-1 || ' month')::interval;
+    v_day := interval '0 day';
+    v_hour := interval '0 hour';
+    v_minute := interval '0 minute';
 END IF;
 IF day IS NOT NULL THEN
-    not_defined := array_remove(not_defined, 'day');
-    IF to_timestamp(day||'.'||v_month||'.'||v_year||' '||0||':'||0, 'DD.MM.YYYY HH24:MI') >= date_trunc('day', next_minute) THEN
-        v_hour := 0;
-        v_minute := 0;
-    END IF;
-    v_day = day;
+    v_day := (day-1 || ' day')::interval;
+    v_hour := interval '0 hour';
+    v_minute := interval '0 minute';
 END IF;
 IF hour IS NOT NULL THEN
-    not_defined := array_remove(not_defined, 'hour');
-    IF to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||hour||':'||0, 'DD.MM.YYYY HH24:MI') >= date_trunc('hour', next_minute) THEN
-        v_minute := 0;
-    END IF;
-    v_hour = hour;
+    v_hour := (hour || ' hour')::interval;
+    v_minute := interval '0 minute';
 END IF;
 IF minute IS NOT NULL THEN
-    not_defined := array_remove(not_defined, 'minute'); v_minute := minute;
+    v_minute := (minute || ' minute')::interval;
 END IF;
-IF to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') < next_minute THEN
-    LOOP
-        IF 'minute' = ANY (not_defined) THEN
-            not_defined := array_remove(not_defined, 'minute');
-            v_minute := 0;
+LOOP
+    EXIT WHEN (v_day + v_month + v_year + v_hour + v_minute) >= next_minute;
+    v_difference := next_minute - (v_day + v_month + v_year + v_hour + v_minute);
+    IF v_difference < interval '1 hour' and minute IS NULL THEN
+        v_minute := v_minute + (date_part('minute', v_difference)||' minute')::interval + interval '1 minute';
+    ELSE
+        IF minute IS NULL THEN
+           v_minute := interval '0 minute';
         END IF;
-        EXIT WHEN to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') >= next_minute;
-        IF 'hour' = ANY (not_defined) THEN
-            IF (to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 hour') > next_minute THEN
-                v_hour := date_part('hour', to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 hour');
-	    ELSE
-                IF (to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 day') > next_minute THEN
-                    not_defined := array_remove(not_defined, 'hour');
-                    v_hour := 0;
+        IF v_difference < interval '1 day' and hour IS NULL THEN
+            v_hour := v_hour + (date_part('hour', v_difference)||' hour')::interval + interval '1 hour';
+        ELSE
+            IF hour IS NULL THEN
+               v_hour := interval '0 hour';
+            END IF;
+            IF v_difference < interval '1 month' and day IS NULL THEN
+                v_day := v_day + (date_part('day', v_difference)||' day')::interval + interval '1 day';
+            ELSE
+                IF day IS NULL THEN
+                   v_day := interval '0 day';
+                END IF;
+                IF v_difference < interval '1 year' and month IS NULL THEN
+                    v_month := v_month + (date_part('month', v_difference)||' month')::interval + interval '1 month';
+                ELSE
+                    v_year := v_year + interval '1 year';
+                    IF month IS NULL THEn
+                       v_month := interval '0 month';
+                    END IF;
                 END IF;
             END IF;
         END IF;
-        EXIT WHEN to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') >= next_minute;
-        IF 'day' = ANY (not_defined) THEN
-            IF (to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 day') > next_minute THEN
-                v_day := date_part('day', to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 day');
-	    ELSE
-                IF (to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 month') > next_minute THEN
-                    not_defined := array_remove(not_defined, 'day');
-                    v_day := 0;
-                END IF;
-            END IF;
-        END IF;
-        EXIT WHEN to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') >= next_minute;
-        IF 'month' = ANY (not_defined) THEN
-            IF (to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 month') > next_minute THEN
-                v_month := date_part('month', to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 month');
-	    ELSE
-                IF (to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 year') > next_minute THEN
-                    not_defined := array_remove(not_defined, 'month');
-                    v_month := 0;
-                END IF;
-            END IF;
-        END IF;
-        EXIT WHEN to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') >= next_minute;
-        IF 'year' = ANY (not_defined) THEN
-	    v_year := date_part('year', to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') + interval '1 year');
-	    not_defined := array_remove(not_defined, 'month');
-        END IF;
-        EXIT WHEN to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI') >= next_minute;
-    END LOOP;
-END IF;
-RETURN to_timestamp(v_day||'.'||v_month||'.'||v_year||' '||v_hour||':'||v_minute, 'DD.MM.YYYY HH24:MI');
+    END IF;
+END LOOP;
+RETURN   (v_day + v_month + v_year + v_hour + v_minute);
 END;
 $$ LANGUAGE plpgsql;
