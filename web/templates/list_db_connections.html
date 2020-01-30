@@ -5,7 +5,7 @@
     <a href="/db_connection/{{ obj.database_connection }}/edit/">Edit</a>
   </p>
   <p>
-    <span>{{ obj.connect_string }}</span>
+    <span>{% if not obj.error %}<i class="fa fa-check"></i>{% else %}<i class="fa fa-exclamation-triangle" data-toggle="tooltip" data-placement="top" title="{{ obj.error }}"></i>{% endif %}{{ obj.connect_string }}</span>
     <span>{{ obj.comment }}</span>
   </p>
 </div>

@@ -306,7 +306,7 @@ class Model(object):
         records = self.cur.fetchall()
         result = []
         for row in records:
-            result.append(Object(database_connection=row[0], connect_string=row[1], comment=row[2]))
+            result.append(Object(database_connection=row[0], connect_string=row[1], comment=row[2], error=validate_db_connection(row[1])))
         return result
 
 
@@ -318,7 +318,7 @@ class Model(object):
         if len(records) == 0:
             return None
         row = records[0]
-        return Object(database_connection=row[0], connect_string=row[1], comment=row[2])
+        return Object(database_connection=row[0], connect_string=row[1], comment=row[2], error=validate_db_connection(row[1]))
 
 
     def get_all_chain_configs(self):
@@ -366,6 +366,14 @@ class Model(object):
         result = Object(chain_execution_config=row[0], chain_id=row[1], chain_name=row[2], run_at_minute=row[3], run_at_hour=row[4], run_at_day=row[5], run_at_month=row[6], run_at_day_of_week=row[7], max_instances=row[8], live=row[9], self_destruct=row[10], exclusive_execution=row[11], excluded_execution_configs=row[12], client_name=row[13])
         return result
 
+def validate_db_connection(s):
+    try:
+        conn = psycopg2.connect(s)
+        conn.close()
+        return False
+    except Exception as e:
+        return e
+
 def empty_or_integer(i):
     if isinstance(i, int) or i is None:
         return i
@@ -401,6 +409,11 @@ class DBConnectionForm(Form):
     database_connection = IntegerField("Database connection")
     connect_string = StringField("Connect string")
     comment = TextAreaField("Comment")
+
+    def validate_connect_string(form, field):
+        error = validate_db_connection(field.data)
+        if error:
+            raise ValidationError(error)
 
 class ChainExecutionParametersForm(Form):
     order_id = IntegerField("Order id")
