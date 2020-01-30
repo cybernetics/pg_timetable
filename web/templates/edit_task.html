@@ -6,15 +6,46 @@
         <div class="card-body">
           {% from "_formhelpers.html" import render_field %}
           <form action="." method="post">
-	      {{ render_field(form.task_name, class="form-control" + (" is-invalid" if form.errors else ""), **({"readonly":"true"} if form.task_kind.data == 'BUILTIN' else {})) }}
-              {{ render_field(form.task_function, class="form-control" + (" is-invalid" if form.errors else ""), **({"readonly":"true"} if form.task_kind.data == 'BUILTIN' else {})) }}
-	      {{ render_field(form.task_kind, class="form-control" + (" is-invalid" if form.errors else ""), **({"readonly":"true"} if form.task_kind.data == 'BUILTIN' else {})) }}
+	      {{ render_field(form.task_name, class="form-control" + (" is-invalid" if form.errors else "")) }}
+              {{ render_field(form.task_function, hidden=true, class="form-control" + (" is-invalid" if form.errors else "")) }}
+	      <div class="task_function_styled"><pre><code style="min-height: 36px;height: 100%" class="form-control" {% if form.task_kind.data != 'BUILTIN' %} contenteditable="true"{% endif %}>{{ form.task_function.data }}</code></pre></div>
+	      {{ render_field(form.task_kind, class="form-control" + (" is-invalid" if form.errors else ""))}}
               <input type="submit" class="btn btn-primary" value="submit" />
           </form>
         </div>
       </div>
     </div>
   </div>
-
 </div>
+{% endblock %}
+ {% block stylesheets %}
+<link rel="stylesheet"
+      href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/default.min.css">
+{% endblock stylesheets %}
+{% block javascripts %}
+<script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+<script>
+$(document).ready(function () {
+  $(".task_function_styled pre code").trigger( "code:updated" );
+});
+$("#task_function").keyup(function(){
+  code = $(".task_function_styled pre code");
+  code.html($(this).val());
+  code.trigger( "code:updated" );
+});
+$( "#task_kind" ).change(function() {
+  $(".task_function_styled pre code").trigger( "code:updated" );
+});
+$(".task_function_styled pre code").keyup(function(){
+  $("#task_function").val($(this).html().replace(/<br[^>]*>/ig, '\n').replace(/(<([^>]+)>)/ig, '').replace(/&nbsp;/g, ' ').trim());
+});
+$(".task_function_styled pre code").on("focusout", function(){
+  $(this).trigger( "code:updated" );
+});
+$(".task_function_styled pre code").on("code:updated", function(){
+  $(this).html(function(i, origText){ return hljs.highlight(
+    $("#task_kind").val() === 'SHELL' ? 'bash' : 'sql',
+    origText.replace(/<br[^>]*>/ig, '\n').replace(/(<([^>]+)>)/ig, '').replace(/&nbsp;/g, ' ').trim()).value});
+});
+</script>
 {% endblock %}

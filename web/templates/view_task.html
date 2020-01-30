@@ -3,7 +3,17 @@
 <div>
    {% if obj.task_kind != 'BUILTIN' %}<p><a href="/task/{{ obj.task_id }}/edit/">Edit</a></p>{% endif %}
    <p>Task name: <span>{{ obj.task_name }}</p>
-   <p>Task function: <span>{{ obj.task_function }}</span></p>
+   <p>Task function: <pre><code style="min-height: 36px;height: 100%" class="form-control {{ "sql" if obj.task_kind == 'SQL' else "bash" }}" >{{ obj.task_function }}</code></pre></p>
    <p>Task kind: <span>{{ obj.task_kind }}</span></p>
 </div>
+{% endblock %}
+ {% block stylesheets %}
+<link rel="stylesheet"
+      href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/default.min.css">
+{% endblock stylesheets %}
+{% block javascripts %}
+<script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+<script>
+hljs.initHighlightingOnLoad();
+</script>
 {% endblock %}

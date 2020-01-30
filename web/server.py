@@ -521,6 +521,11 @@ def edit_task(task_id):
     if obj is None:
         abort(404)
     form = TaskForm(request.form, obj=obj)
+    if obj.task_kind == 'BUILTIN':
+        form.task_kind.choices = [('BUILTIN', 'BUILTIN')]
+        form.task_kind.render_kw = {'readonly': 'true'}
+        form.task_name.render_kw = {'readonly': 'true'}
+        form.task_function.render_kw = {'readonly': 'true'}
     if request.method == 'POST' and form.validate():
         db.update(task_name=form.task_name.data, task_function=form.task_function.data, task_kind=form.task_kind.data)
         db.save_task()
