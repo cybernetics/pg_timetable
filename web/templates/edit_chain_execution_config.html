@@ -5,7 +5,7 @@
       <div class="card-header">
         <div class="card-body">
           {% from "_formhelpers.html" import render_field %}
-          <form action="." method="post">
+          <form id="editchainconfigform" action="." method="post">
             <dl>
               {{ render_field(form.chain_id, class="form-control selectpicker" + (" is-invalid" if form.errors else ""), data_style="btn-secondary") }}
               {% if form.task_id.choices|length > 0 and not form.task_id.choices.0.0 is none %}
@@ -51,5 +51,11 @@ $("#advanced_schedule").on("click", function(){
     $(this).toggleClass("d-none")
   })
 })
+$("#editchainconfigform").validate({
+	errorClass: "is-invalid",
+	rules: {
+		'chain_name': 'required',
+	}
+});
 </script>
 {% endblock %}

@@ -4,6 +4,7 @@ from wtforms import Form, BooleanField, SelectField, StringField, TextAreaField,
 from wtforms.validators import StopValidation
 from wtforms.widgets.html5 import NumberInput
 import os
+import re
 import json
 import datetime
 import psycopg2
@@ -331,7 +332,7 @@ class Model(object):
             result.append(Object(chain_execution_config=row[0], chain_id=row[1], chain_name=row[2], run_at_minute=row[3], run_at_hour=row[4], run_at_day=row[5], run_at_month=row[6], run_at_day_of_week=row[7], max_instances=row[8], live=row[9], self_destruct=row[10], exclusive_execution=row[11], excluded_execution_configs=row[12], client_name=row[13]))
         return result
 
-    def save_chain_config(self):
+    def save_chain_config(self, commit=True):
         if self.chain_execution_config is None and self.chain_id is None and self.task_id is not None:
             self.cur.execute(
                 "WITH ins AS (INSERT INTO timetable.task_chain (parent_id, task_id, run_uid, database_connection, ignore_error) VALUES (DEFAULT, %s, DEFAULT, DEFAULT, DEFAULT) RETURNING chain_id) INSERT INTO timetable.chain_execution_config (chain_name, chain_id, run_at_minute, run_at_hour, run_at_day, run_at_month, run_at_day_of_week, max_instances, live, self_destruct, exclusive_execution, excluded_execution_configs, client_name) SELECT %s, chain_id, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s from ins", (self.task_id, self.chain_name, self.run_at_minute, self.run_at_hour, self.run_at_day, self.run_at_month, self.run_at_day_of_week, self.max_instances, self.live, self.self_destruct, self.exclusive_execution, self.excluded_execution_configs, self.client_name))
@@ -341,6 +342,12 @@ class Model(object):
         else:
             self.cur.execute(
                 "UPDATE timetable.chain_execution_config SET chain_execution_config = %s, chain_id = %s, chain_name = %s, run_at_minute = %s, run_at_hour = %s, run_at_day = %s, run_at_month = %s, run_at_day_of_week = %s, max_instances = %s, live = %s, self_destruct = %s, exclusive_execution = %s, excluded_execution_configs = %s, client_name = %s where chain_execution_config = %s", (self.chain_execution_config, self.chain_id, self.chain_name, self.run_at_minute, self.run_at_hour, self.run_at_day, self.run_at_month, self.run_at_day_of_week, self.max_instances, self.live, self.self_destruct, self.exclusive_execution, self.excluded_execution_configs, self.client_name, self.chain_execution_config))
+            #In case we want to add more records, we don't want to override existing one
+            self.chain_execution_config = None
+        if commit:
+            self.conn.commit()
+
+    def commit(self):
         self.conn.commit()
 
 
@@ -601,17 +608,16 @@ def add_chain_execution_configs():
             # CRON style
             cron = f"{cron_run_at_minute} {cron_run_at_hour} {cron_run_at_day} {cron_run_at_month} {cron_run_at_day_of_week}"
 
-        print(cron)
+        cron_matrix = [[(x if x !='*' else None) for x in s.split(',')] for s in cron.split(' ')]
+        for run_at_minute in cron_matrix[0]:
+            for run_at_hour in cron_matrix[1]:
+                for run_at_day in cron_matrix[2]:
+                    for run_at_month in cron_matrix[3]:
+                        for run_at_day_of_week in cron_matrix[4]:
 
-        # TEMPORARY, this circumvents the cron input
-        run_at_minute = form.run_at_minute.data[0] if len(form.run_at_minute.data) > 0 else None
-        run_at_hour = form.run_at_hour.data[0] if len(form.run_at_hour.data) > 0 else None
-        run_at_day = form.run_at_day.data[0] if len(form.run_at_day.data) > 0 else None
-        run_at_month = form.run_at_month.data[0] if len(form.run_at_month.data) > 0 else None
-        run_at_day_of_week = form.run_at_day_of_week.data[0] if len(form.run_at_day_of_week.data) > 0 else None
-        # TODO generate multiple configuration rows
-        db.update(chain_id=form.chain_id.data, task_id=form.task_id.data, chain_name=form.chain_name.data, run_at_minute=run_at_minute, run_at_hour=run_at_hour, run_at_day=run_at_day, run_at_month=run_at_month, run_at_day_of_week=run_at_day_of_week, max_instances=form.max_instances.data, live=form.live.data, self_destruct=form.self_destruct.data, exclusive_execution=form.exclusive_execution.data, excluded_execution_configs=form.excluded_execution_configs.data, client_name=form.client_name.data)
-        db.save_chain_config()
+                            db.update(chain_id=form.chain_id.data, task_id=form.task_id.data, chain_name=f"{form.chain_name.data}-{run_at_minute or '*'}_{run_at_hour or '*'}_{run_at_day or '*'}_{run_at_month or '*'}_{run_at_day_of_week or '*'}", run_at_minute=run_at_minute, run_at_hour=run_at_hour, run_at_day=run_at_day, run_at_month=run_at_month, run_at_day_of_week=run_at_day_of_week, max_instances=form.max_instances.data, live=form.live.data, self_destruct=form.self_destruct.data, exclusive_execution=form.exclusive_execution.data, excluded_execution_configs=form.excluded_execution_configs.data, client_name=form.client_name.data)
+                            db.save_chain_config(commit=False)
+        db.commit()
         return redirect(f"/chain_execution_config/", code=302)
     return render_template("edit_chain_execution_config.html", form=form)
 
@@ -635,8 +641,30 @@ def edit_chain_execution_configs(id):
     form = ChainExecutionConfigForm(request.form, obj=obj)
     form.task_id.choices = [(None, "")]
     if request.method == 'POST' and form.validate():
-        db.update(chain_id=form.chain_id.data, chain_name=form.chain_name.data, run_at_minute=form.run_at_minute.data, run_at_hour=form.run_at_hour.data, run_at_day=form.run_at_day.data, run_at_month=form.run_at_month.data, run_at_day_of_week=form.run_at_day_of_week.data, max_instances=form.max_instances.data, live=form.live.data, self_destruct=form.self_destruct.data, exclusive_execution=form.exclusive_execution.data, excluded_execution_configs=form.excluded_execution_configs.data, client_name=form.client_name.data)
-        db.save_chain_config()
+
+        suffix = re.compile('-[0-9*]+_[0-9*]+_[0-9*]+_[0-9*]+_[0-9*]+')
+        chain_name = suffix.sub("", form.chain_name.data)
+        if form.run_at.data != None:
+            cron = form.run_at.data
+        else:
+            cron_run_at_minute = ",".join([str(t) for t in form.run_at_minute.data])             if len(form.run_at_minute.data)         > 0 else "*"
+            cron_run_at_hour = ",".join([str(t) for t in form.run_at_hour.data])                 if len(form.run_at_hour.data)           > 0 else "*"
+            cron_run_at_day = ",".join([str(t) for t in form.run_at_day.data])                   if len(form.run_at_day.data)            > 0 else "*"
+            cron_run_at_month = ",".join([str(t) for t in form.run_at_month.data])               if len(form.run_at_month.data)          > 0 else "*"
+            cron_run_at_day_of_week = ",".join([str(t) for t in form.run_at_day_of_week.data])   if len(form.run_at_day_of_week.data)    > 0 else "*"
+            # CRON style
+            cron = f"{cron_run_at_minute} {cron_run_at_hour} {cron_run_at_day} {cron_run_at_month} {cron_run_at_day_of_week}"
+
+        cron_matrix = [[(x if x !='*' else None) for x in s.split(',')] for s in cron.split(' ')]
+        for run_at_minute in cron_matrix[0]:
+            for run_at_hour in cron_matrix[1]:
+                for run_at_day in cron_matrix[2]:
+                    for run_at_month in cron_matrix[3]:
+                        for run_at_day_of_week in cron_matrix[4]:
+
+                            db.update(chain_id=form.chain_id.data, task_id=form.task_id.data, chain_name=f"{chain_name}-{run_at_minute or '*'}_{run_at_hour or '*'}_{run_at_day or '*'}_{run_at_month or '*'}_{run_at_day_of_week or '*'}", run_at_minute=run_at_minute, run_at_hour=run_at_hour, run_at_day=run_at_day, run_at_month=run_at_month, run_at_day_of_week=run_at_day_of_week, max_instances=form.max_instances.data, live=form.live.data, self_destruct=form.self_destruct.data, exclusive_execution=form.exclusive_execution.data, excluded_execution_configs=form.excluded_execution_configs.data, client_name=form.client_name.data)
+                            db.save_chain_config(commit=False)
+        db.commit()
         return redirect(f"/chain_execution_config/{id}/", code=302)
     return render_template("edit_chain_execution_config.html", form=form)
 
