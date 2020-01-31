@@ -666,11 +666,11 @@ def edit_chain_execution_configs(id):
                             db.save_chain_config(commit=False)
         db.commit()
         return redirect(f"/chain_execution_config/{id}/", code=302)
-    form.run_at_minute.process_data([obj.run_at_minute] if obj.run_at_minute else [])
-    form.run_at_hour.process_data([obj.run_at_hour] if obj.run_at_hour else [])
-    form.run_at_day.process_data([obj.run_at_day] if obj.run_at_day else [])
-    form.run_at_month.process_data([obj.run_at_month] if obj.run_at_month else [])
-    form.run_at_day_of_week.process_data([obj.run_at_day_of_week] if obj.run_at_day_of_week else [])
+    form.run_at_minute.process_data([obj.run_at_minute] if obj.run_at_minute is not None else [])
+    form.run_at_hour.process_data([obj.run_at_hour] if obj.run_at_hour is not None else [])
+    form.run_at_day.process_data([obj.run_at_day] if obj.run_at_day is not None else [])
+    form.run_at_month.process_data([obj.run_at_month] if obj.run_at_month is not None else [])
+    form.run_at_day_of_week.process_data([obj.run_at_day_of_week] if obj.run_at_day_of_week is not None else [])
     return render_template("edit_chain_execution_config.html", form=form)
 
 
