@@ -333,10 +333,12 @@ class Model(object):
         return result
 
     def save_chain_config(self, commit=True):
-        if self.chain_execution_config is None and self.chain_id is None and self.task_id is not None:
+        if self.chain_id is None and self.task_id is not None:
             self.cur.execute(
-                "WITH ins AS (INSERT INTO timetable.task_chain (parent_id, task_id, run_uid, database_connection, ignore_error) VALUES (DEFAULT, %s, DEFAULT, DEFAULT, DEFAULT) RETURNING chain_id) INSERT INTO timetable.chain_execution_config (chain_name, chain_id, run_at_minute, run_at_hour, run_at_day, run_at_month, run_at_day_of_week, max_instances, live, self_destruct, exclusive_execution, excluded_execution_configs, client_name) SELECT %s, chain_id, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s from ins", (self.task_id, self.chain_name, self.run_at_minute, self.run_at_hour, self.run_at_day, self.run_at_month, self.run_at_day_of_week, self.max_instances, self.live, self.self_destruct, self.exclusive_execution, self.excluded_execution_configs, self.client_name))
-        elif self.chain_execution_config is None:
+                "INSERT INTO timetable.task_chain (parent_id, task_id, run_uid, database_connection, ignore_error) VALUES (DEFAULT, %s, DEFAULT, DEFAULT, DEFAULT) RETURNING chain_id", (self.task_id,))
+            self.chain_id = self.cur.fetchone()[0]
+            print(self.chain_id)
+        if self.chain_execution_config is None:
             self.cur.execute(
                 "INSERT INTO timetable.chain_execution_config (chain_name, chain_id, run_at_minute, run_at_hour, run_at_day, run_at_month, run_at_day_of_week, max_instances, live, self_destruct, exclusive_execution, excluded_execution_configs, client_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (self.chain_name, self.chain_id, self.run_at_minute, self.run_at_hour, self.run_at_day, self.run_at_month, self.run_at_day_of_week, self.max_instances, self.live, self.self_destruct, self.exclusive_execution, self.excluded_execution_configs, self.client_name))
         else:
@@ -608,6 +610,7 @@ def add_chain_execution_configs():
             # CRON style
             cron = f"{cron_run_at_minute} {cron_run_at_hour} {cron_run_at_day} {cron_run_at_month} {cron_run_at_day_of_week}"
 
+        db.update(task_id=form.task_id.data, chain_id=form.chain_id.data)
         cron_matrix = [[(x if x !='*' else None) for x in s.split(',')] for s in cron.split(' ')]
         for run_at_minute in cron_matrix[0]:
             for run_at_hour in cron_matrix[1]:
@@ -615,7 +618,7 @@ def add_chain_execution_configs():
                     for run_at_month in cron_matrix[3]:
                         for run_at_day_of_week in cron_matrix[4]:
 
-                            db.update(chain_id=form.chain_id.data, task_id=form.task_id.data, chain_name=f"{form.chain_name.data}-{run_at_minute or '*'}_{run_at_hour or '*'}_{run_at_day or '*'}_{run_at_month or '*'}_{run_at_day_of_week or '*'}", run_at_minute=run_at_minute, run_at_hour=run_at_hour, run_at_day=run_at_day, run_at_month=run_at_month, run_at_day_of_week=run_at_day_of_week, max_instances=form.max_instances.data, live=form.live.data, self_destruct=form.self_destruct.data, exclusive_execution=form.exclusive_execution.data, excluded_execution_configs=form.excluded_execution_configs.data, client_name=form.client_name.data)
+                            db.update(chain_name=f"{form.chain_name.data}-{run_at_minute or '*'}_{run_at_hour or '*'}_{run_at_day or '*'}_{run_at_month or '*'}_{run_at_day_of_week or '*'}", run_at_minute=run_at_minute, run_at_hour=run_at_hour, run_at_day=run_at_day, run_at_month=run_at_month, run_at_day_of_week=run_at_day_of_week, max_instances=form.max_instances.data, live=form.live.data, self_destruct=form.self_destruct.data, exclusive_execution=form.exclusive_execution.data, excluded_execution_configs=form.excluded_execution_configs.data, client_name=form.client_name.data)
                             db.save_chain_config(commit=False)
         db.commit()
         return redirect(f"/chain_execution_config/", code=302)
