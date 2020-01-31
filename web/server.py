@@ -434,15 +434,15 @@ def run_at_filter(i, raise_error=False):
 
 
 class ChainExecutionConfigForm(Form):
-    chain_id = SelectField("Parent chain", coerce=empty_or_integer, choices=[(c.chain_id, c.chain_id) for c in Model().get_all_chains()])
+    chain_id = SelectField("Chain", coerce=empty_or_integer, choices=[(c.chain_id, c.chain_id) for c in Model().get_all_chains()])
     task_id = SelectField("Task type", coerce=empty_or_integer)
     chain_name = StringField("Chain name", filters=[lambda i: i or None])
     run_at = StringField("Cron style schedule", filters=[lambda i: i or None])
-    run_at_minute = SelectMultipleField("Run at minute", choices=[(i, i) for i in range(0,60, 5)], filters=[run_at_filter])
-    run_at_hour = SelectMultipleField("Run at hour", choices=[(i, i) for i in range(0,24)], filters=[run_at_filter])
-    run_at_day = SelectMultipleField("Run at day", choices=[(i, i) for i in range(0,31)], filters=[run_at_filter])
-    run_at_month = SelectMultipleField("Run at month", choices=[(i, i) for i in range(1,13)], filters=[run_at_filter])
-    run_at_day_of_week = SelectMultipleField("Run at day of week", choices=[(i, title) for i, title in enumerate(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])], filters=[run_at_filter])
+    run_at_minute = SelectMultipleField("Run at minute", coerce=empty_or_integer, choices=[(i, i) for i in range(0,60, 5)], filters=[run_at_filter])
+    run_at_hour = SelectMultipleField("Run at hour", coerce=empty_or_integer, choices=[(i, i) for i in range(0,24)], filters=[run_at_filter])
+    run_at_day = SelectMultipleField("Run at day", coerce=empty_or_integer, choices=[(i, i) for i in range(0,31)], filters=[run_at_filter])
+    run_at_month = SelectMultipleField("Run at month", coerce=empty_or_integer, choices=[(i, i) for i in range(1,13)], filters=[run_at_filter])
+    run_at_day_of_week = SelectMultipleField("Run at day of week", coerce=empty_or_integer, choices=[(i, title) for i, title in enumerate(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])], filters=[run_at_filter])
     max_instances = StringField("max instances", widget=NumberInput(), filters=[lambda i: i or None])
     live = MyBooleanField("live")
     self_destruct = MyBooleanField("self destruct")
@@ -639,6 +639,11 @@ def edit_chain_execution_configs(id):
     db = Model(chain_execution_config=id)
     obj = db.get_chain_config_by_id(id)
     form = ChainExecutionConfigForm(request.form, obj=obj)
+    form.run_at_minute.process_data([obj.run_at_minute] if obj.run_at_minute else [])
+    form.run_at_hour.process_data([obj.run_at_hour] if obj.run_at_hour else [])
+    form.run_at_day.process_data([obj.run_at_day] if obj.run_at_day else [])
+    form.run_at_month.process_data([obj.run_at_month] if obj.run_at_month else [])
+    form.run_at_day_of_week.process_data([obj.run_at_day_of_week] if obj.run_at_day_of_week else [])
     form.task_id.choices = [(None, "")]
     if request.method == 'POST' and form.validate():
 
