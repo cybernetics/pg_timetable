@@ -586,7 +586,7 @@ def delete_chain(chain_id, chain_execution_config):
     else:
         db = Model(chain_id=chain_id)
         db.delete_chain()
-        return redirect(f"/chain_execution_config/{chain_execution_config}/", code=302)
+        return redirect(f"/chain_execution_config/", code=302)
 
 
 @app.route('/chain_execution_config/add/', methods=["GET", "POST"])
@@ -639,11 +639,6 @@ def edit_chain_execution_configs(id):
     db = Model(chain_execution_config=id)
     obj = db.get_chain_config_by_id(id)
     form = ChainExecutionConfigForm(request.form, obj=obj)
-    form.run_at_minute.process_data([obj.run_at_minute] if obj.run_at_minute else [])
-    form.run_at_hour.process_data([obj.run_at_hour] if obj.run_at_hour else [])
-    form.run_at_day.process_data([obj.run_at_day] if obj.run_at_day else [])
-    form.run_at_month.process_data([obj.run_at_month] if obj.run_at_month else [])
-    form.run_at_day_of_week.process_data([obj.run_at_day_of_week] if obj.run_at_day_of_week else [])
     form.task_id.choices = [(None, "")]
     if request.method == 'POST' and form.validate():
 
@@ -671,6 +666,11 @@ def edit_chain_execution_configs(id):
                             db.save_chain_config(commit=False)
         db.commit()
         return redirect(f"/chain_execution_config/{id}/", code=302)
+    form.run_at_minute.process_data([obj.run_at_minute] if obj.run_at_minute else [])
+    form.run_at_hour.process_data([obj.run_at_hour] if obj.run_at_hour else [])
+    form.run_at_day.process_data([obj.run_at_day] if obj.run_at_day else [])
+    form.run_at_month.process_data([obj.run_at_month] if obj.run_at_month else [])
+    form.run_at_day_of_week.process_data([obj.run_at_day_of_week] if obj.run_at_day_of_week else [])
     return render_template("edit_chain_execution_config.html", form=form)
 
 
